@@ -105,18 +105,21 @@ if($cek->rowCount() > 0){
 }
 
 $password_hash = password_hash($password, PASSWORD_DEFAULT);
+$role = (substr(strtolower(trim($email)), -10) === '@admin.com') ? 'admin' : 'user';
 
 $query = $conn->prepare(
 "INSERT INTO users
-(nama,email,telepon,password)
-VALUES (?,?,?,?)"
+(nama,email,telepon,password,role,status_acc)
+VALUES (?,?,?,?,?,?)"
 );
 
 $query->execute([
     $nama,
     $email,
     $telepon,
-    $password_hash
+    $password_hash,
+    $role,
+    'approved'
 ]);
 
 echo "

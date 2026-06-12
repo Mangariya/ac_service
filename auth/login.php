@@ -1,3 +1,4 @@
+<?php session_start(); ?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -148,6 +149,27 @@ body{
     font-weight:600;
 }
 
+.btn-back{
+    display:inline-block;
+    padding:10px 20px;
+    background:#E5E7EB;
+    color:#374151;
+    border-radius:12px;
+    text-decoration:none;
+    font-weight:600;
+    transition:0.3s;
+    margin-bottom:25px;
+    border:none;
+    cursor:pointer;
+    font-family:'Poppins',sans-serif;
+    font-size:15px;
+}
+
+.btn-back:hover{
+    background:#D1D5DB;
+    color:#111827;
+}
+
 @media(max-width:768px){
 
     .login-container{
@@ -186,12 +208,16 @@ Booking service AC kini lebih mudah, cepat, dan terpercaya untuk rumah maupun ka
 </div>
 
 <div class="login-title">
-Welcome Back
+Admin Login
 </div>
 
 <div class="login-subtitle">
-Silahkan login untuk melanjutkan
+Hanya untuk akses admin. Pengguna booking tidak perlu login di sini.
 </div>
+
+<a href="../user/home.php" class="btn-back">
+<i class="bi bi-arrow-left me-2"></i>Kembali ke Beranda
+</a>
 
 <form action="process-login.php" method="POST">
 

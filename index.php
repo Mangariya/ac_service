@@ -2,7 +2,8 @@
 
 include 'config/database.php';
 
-header('Location: auth/login.php');
+// Redirect ke halaman home dashboard (guest bisa akses tanpa login)
+header('Location: user/home.php');
 exit;
 
 ?>

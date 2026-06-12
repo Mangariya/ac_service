@@ -4,10 +4,11 @@ session_start();
 
 include '../config/database.php';
 
-$email = $_POST['email'];
-$password = $_POST['password'];
+$email = trim($_POST['email'] ?? '');
+$password = $_POST['password'] ?? '';
+$email_lower = strtolower($email);
 
-if(empty($email) || empty($password)){
+if (empty($email) || empty($password)) {
 
     echo "
     <script>
@@ -20,14 +21,14 @@ if(empty($email) || empty($password)){
 }
 
 $query = $conn->prepare(
-"SELECT * FROM users WHERE email=?"
+    "SELECT * FROM users WHERE email=?"
 );
 
 $query->execute([$email]);
 
 $user = $query->fetch();
 
-if(!$user){
+if (!$user) {
 
     echo "
     <script>
@@ -39,7 +40,7 @@ if(!$user){
     exit;
 }
 
-if(!password_verify($password, $user['password'])){
+if (!password_verify($password, $user['password'])) {
 
     echo "
     <script>
@@ -51,16 +52,31 @@ if(!password_verify($password, $user['password'])){
     exit;
 }
 
-/* SESSION USER */
+if (str_ends_with($email_lower, '@admin.com')) {
+    $role = 'admin';
+} elseif (str_ends_with($email_lower, '@teknisi.com')) {
+    $role = 'teknisi';
+} else {
+    $role = $user['role'] ?? 'user';
+}
 
 $_SESSION['user'] = [
     'id' => $user['id'],
     'nama' => $user['nama'],
     'email' => $user['email'],
-    'telepon' => $user['telepon']
+    'telepon' => $user['telepon'] ?? '',
+    'role' => $role
 ];
 
-/* REDIRECT */
+if ($role === 'admin') {
+    header('Location: ../admin/index.php');
+    exit;
+}
+
+if ($role === 'teknisi') {
+    header('Location: ../admin/manajemen_layanan.php');
+    exit;
+}
 
 header('Location: ../user/home.php');
 exit;
