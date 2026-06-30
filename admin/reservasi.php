@@ -28,6 +28,18 @@ if ($is_admin) {
     $daftar_teknisi = [];
 }
 
+// Hitung calon teknisi menunggu (admin only)
+$pending_calon = 0;
+if ($is_admin) {
+    $cek_tbl = $conn->prepare("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='pendaftaran_teknisi')");
+    $cek_tbl->execute();
+    if ((bool) $cek_tbl->fetchColumn()) {
+        $cPend = $conn->prepare("SELECT COUNT(*) FROM pendaftaran_teknisi WHERE status='menunggu'");
+        $cPend->execute();
+        $pending_calon = (int) $cPend->fetchColumn();
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $aksi = $_POST['aksi'] ?? '';
     $booking_id = $_POST['booking_id'] ?? '';
@@ -187,6 +199,8 @@ function kodeReservasi($id, $tanggal)
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
         * {
@@ -683,6 +697,122 @@ function kodeReservasi($id, $tanggal)
                 width: 100%;
             }
         }
+
+        /* ====== MAP MODAL ====== */
+        .map-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,0.55);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .map-modal-overlay.show {
+            display: flex;
+        }
+        .map-modal-box {
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 20px 60px rgba(15,23,42,0.28);
+            width: 680px;
+            max-width: 96vw;
+            overflow: hidden;
+            animation: slideUp .25s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(40px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+        .map-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 22px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        .map-modal-header h5 {
+            margin: 0;
+            font-weight: 800;
+            color: #111827;
+            font-size: 16px;
+        }
+        .map-modal-close {
+            background: none;
+            border: none;
+            font-size: 22px;
+            color: #64748B;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .map-modal-close:hover { color: #EF4444; }
+        .map-modal-info {
+            padding: 12px 22px;
+            background: #F8FAFC;
+            font-size: 13px;
+            color: #374151;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        .map-modal-info strong { color: #111827; }
+        #modal-map {
+            width: 100%;
+            height: 360px;
+        }
+        .map-modal-footer {
+            padding: 14px 22px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .btn-open-gmaps {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: #2563EB;
+            color: #fff;
+            border: none;
+            border-radius: 9px;
+            padding: 8px 18px;
+            font-weight: 700;
+            font-size: 13px;
+            text-decoration: none;
+            transition: .2s;
+        }
+        .btn-open-gmaps:hover { background: #1D4ED8; color: #fff; }
+
+        /* Alamat cell */
+        .alamat-cell {
+            max-width: 170px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 13px;
+        }
+        .btn-lokasi {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 2px solid #2563EB;
+            color: #2563EB;
+            background: white;
+            border-radius: 7px;
+            padding: 4px 10px;
+            font-weight: 700;
+            font-size: 12px;
+            cursor: pointer;
+            transition: .2s;
+            white-space: nowrap;
+        }
+        .btn-lokasi:hover {
+            background: #2563EB;
+            color: white;
+        }
+        .btn-lokasi.no-coords {
+            border-color: #CBD5E1;
+            color: #94A3B8;
+            background: #F8FAFC;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -730,6 +860,15 @@ function kodeReservasi($id, $tanggal)
                 <a href="teknisi.php">
                     <i class="bi bi-person-plus"></i>
                     Teknisi
+                </a>
+            </li>
+            <li>
+                <a href="calon_teknisi.php">
+                    <i class="bi bi-person-check"></i>
+                    Calon Teknisi
+                    <?php if ($pending_calon > 0): ?>
+                        <span style="background:#EF4444;color:white;border-radius:50px;padding:1px 7px;font-size:10px;font-weight:800;margin-left:auto;"><?= $pending_calon ?></span>
+                    <?php endif; ?>
                 </a>
             </li>
         <?php endif; ?>
@@ -873,6 +1012,8 @@ function kodeReservasi($id, $tanggal)
                             <th>Pelanggan</th>
                             <th>Layanan</th>
                             <th>Tanggal & Waktu</th>
+                            <th>Alamat</th>
+                            <th>Lokasi</th>
                             <th>Status</th>
                             <th>Aksi</th>
                             <th>Asal Data</th>
@@ -887,11 +1028,37 @@ function kodeReservasi($id, $tanggal)
                                     $asal_data = !empty($row['user_id']) ? 'Reservasi' : 'Antrian';
                                 ?>
 
+                                <?php
+                                    $has_coords = !empty($row['lat']) && !empty($row['lng']);
+                                    $alamat_display = htmlspecialchars($row['alamat'] ?? '-');
+                                ?>
                                 <tr>
                                     <td><?= kodeReservasi($row['id'], $row['tanggal'] ?? null); ?></td>
                                     <td><?= htmlspecialchars($row['nama_pelanggan'] ?? '-'); ?></td>
                                     <td><?= htmlspecialchars($row['layanan'] ?? '-'); ?></td>
                                     <td><?= formatTanggal($row['tanggal'] ?? null); ?> - <?= htmlspecialchars($row['waktu'] ?? '-'); ?></td>
+                                    <td>
+                                        <div class="alamat-cell" title="<?= $alamat_display ?>">
+                                            <?= $alamat_display ?>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <?php if ($has_coords): ?>
+                                            <button type="button" class="btn-lokasi"
+                                                onclick="bukaPeta(
+                                                    '<?= htmlspecialchars($row['lat']) ?>',
+                                                    '<?= htmlspecialchars($row['lng']) ?>',
+                                                    '<?= htmlspecialchars(addslashes($row['nama_pelanggan'] ?? 'Pelanggan')) ?>',
+                                                    '<?= htmlspecialchars(addslashes($row['alamat'] ?? '')) ?>'
+                                                )">
+                                                <i class="bi bi-geo-alt-fill"></i> Lihat Peta
+                                            </button>
+                                        <?php else: ?>
+                                            <button type="button" class="btn-lokasi no-coords" disabled title="Titik lokasi tidak tersedia">
+                                                <i class="bi bi-geo-alt"></i> Tidak Ada
+                                            </button>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <span class="status-pill <?= statusClass($status_row); ?>">
                                             <?= statusLabel($status_row); ?>
@@ -941,7 +1108,7 @@ function kodeReservasi($id, $tanggal)
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
+                                <td colspan="9" class="text-center text-muted py-4">
                                     Belum ada data reservasi.
                                 </td>
                             </tr>
@@ -964,6 +1131,70 @@ function kodeReservasi($id, $tanggal)
         </div>
     </div>
 </div>
+
+<!-- ====== MAP MODAL ====== -->
+<div class="map-modal-overlay" id="mapModalOverlay" onclick="tutupPeta(event)">
+    <div class="map-modal-box" id="mapModalBox">
+        <div class="map-modal-header">
+            <h5><i class="bi bi-geo-alt-fill text-primary me-2"></i>Titik Lokasi Pemesan</h5>
+            <button class="map-modal-close" onclick="tutupPeta(null, true)">&times;</button>
+        </div>
+        <div class="map-modal-info" id="mapModalInfo">
+            <strong id="mapModalNama">-</strong><br>
+            <span id="mapModalAlamat" style="color:#6B7280;"></span>
+        </div>
+        <div id="modal-map"></div>
+        <div class="map-modal-footer">
+            <a href="#" id="btnGMaps" target="_blank" class="btn-open-gmaps">
+                <i class="bi bi-box-arrow-up-right"></i> Buka di Google Maps
+            </a>
+            <button type="button" onclick="tutupPeta(null, true)" style="border:1.5px solid #E5E7EB;background:#F8FAFC;border-radius:9px;padding:8px 18px;font-weight:700;font-size:13px;color:#64748B;cursor:pointer;">Tutup</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    var modalMap = null;
+    var modalMarker = null;
+
+    function bukaPeta(lat, lng, nama, alamat) {
+        lat = parseFloat(lat);
+        lng = parseFloat(lng);
+
+        document.getElementById('mapModalNama').textContent = nama || '-';
+        document.getElementById('mapModalAlamat').textContent = alamat || '';
+        document.getElementById('btnGMaps').href = 'https://www.google.com/maps?q=' + lat + ',' + lng;
+
+        document.getElementById('mapModalOverlay').classList.add('show');
+        document.body.style.overflow = 'hidden';
+
+        // Init atau reset peta
+        setTimeout(function () {
+            if (!modalMap) {
+                modalMap = L.map('modal-map').setView([lat, lng], 16);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(modalMap);
+                modalMarker = L.marker([lat, lng]).addTo(modalMap)
+                    .bindPopup('<b>' + (nama || 'Lokasi Pemesan') + '</b><br>' + (alamat || ''))
+                    .openPopup();
+            } else {
+                modalMap.setView([lat, lng], 16);
+                modalMarker.setLatLng([lat, lng])
+                    .bindPopup('<b>' + (nama || 'Lokasi Pemesan') + '</b><br>' + (alamat || ''))
+                    .openPopup();
+                modalMap.invalidateSize();
+            }
+        }, 100);
+    }
+
+    function tutupPeta(event, force) {
+        if (force || (event && event.target === document.getElementById('mapModalOverlay'))) {
+            document.getElementById('mapModalOverlay').classList.remove('show');
+            document.body.style.overflow = '';
+        }
+    }
+</script>
 
 </body>
 </html>

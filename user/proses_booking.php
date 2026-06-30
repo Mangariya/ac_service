@@ -41,6 +41,7 @@ if (
 }
 
 try {
+    // Cek & tambah kolom teknisi_id jika belum ada
     $cek_kolom = $conn->prepare("
         SELECT EXISTS (
             SELECT 1
@@ -57,6 +58,29 @@ try {
         $_SESSION['booking_error'] = 'Kolom teknisi_id belum ada di tabel bookings. Jalankan ALTER TABLE terlebih dahulu.';
         header('Location: booking.php?teknisi_id=' . urlencode($teknisi_id) . '&layanan=' . urlencode($layanan));
         exit;
+    }
+
+    // Tambahkan kolom lat dan lng jika belum ada
+    $cek_lat = $conn->prepare("
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'bookings' AND column_name = 'lat'
+        )
+    ");
+    $cek_lat->execute();
+    if (!(bool) $cek_lat->fetchColumn()) {
+        $conn->exec("ALTER TABLE bookings ADD COLUMN lat VARCHAR(50)");
+    }
+
+    $cek_lng = $conn->prepare("
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'bookings' AND column_name = 'lng'
+        )
+    ");
+    $cek_lng->execute();
+    if (!(bool) $cek_lng->fetchColumn()) {
+        $conn->exec("ALTER TABLE bookings ADD COLUMN lng VARCHAR(50)");
     }
 
     $stmt_cek = $conn->prepare("
@@ -76,14 +100,29 @@ try {
         exit;
     }
 
-    if ($layanan === 'Cuci AC') {
+    // Harga: gunakan dari form (support multi-layanan), fallback ke harga per layanan
+    $harga_post = intval($_POST['harga'] ?? 0);
+    if ($harga_post > 0) {
+        $harga = $harga_post;
+    } elseif ($layanan === 'Cuci AC') {
         $harga = 75000;
     } elseif ($layanan === 'Perbaikan AC') {
         $harga = 150000;
     } elseif ($layanan === 'Isi Freon') {
         $harga = 200000;
     } else {
-        $harga = 50000;
+        // Hitung dari nama layanan gabungan jika multi
+        $harga = 0;
+        $harga_map = ['Cuci AC' => 75000, 'Perbaikan AC' => 150000, 'Isi Freon' => 200000];
+        foreach ($harga_map as $nama_l => $h) {
+            if (stripos($layanan, $nama_l) !== false) {
+                // Cek qty misal "Cuci AC (x2)"
+                preg_match('/\(' . preg_quote($nama_l) . ' \(x(\d+)\)/i', $layanan, $m);
+                $qty = isset($m[1]) ? intval($m[1]) : 1;
+                $harga += $h * $qty;
+            }
+        }
+        if ($harga === 0) $harga = 50000;
     }
 
     $catatan = 'Pelanggan: ' . $pelanggan_nama;
@@ -99,9 +138,9 @@ try {
         $catatan .= ' | Catatan Pelanggan: ' . $pelanggan_catatan;
     }
 
-    if (!empty($lat) && !empty($lng)) {
-        $catatan .= ' | Koordinat: ' . $lat . ', ' . $lng;
-    }
+    // lat & lng disimpan di kolom terpisah, tidak perlu duplikasi di catatan
+    $lat_save = !empty($lat) ? $lat : null;
+    $lng_save = !empty($lng) ? $lng : null;
 
     // Jika user belum login, coba cari user berdasarkan email. Jika tidak ada, buat akun baru otomatis (guest->user)
     if (!$user_id) {
@@ -147,8 +186,8 @@ try {
     if ($user_id) {
         $sql = "
             INSERT INTO bookings 
-            (user_id, teknisi_id, layanan, tanggal, waktu, alamat, catatan, status, harga)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'Menunggu', ?)
+            (user_id, teknisi_id, layanan, tanggal, waktu, alamat, catatan, status, harga, lat, lng)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Menunggu', ?, ?, ?)
             RETURNING id
         ";
 
@@ -160,13 +199,15 @@ try {
             $waktu,
             $alamat,
             $catatan,
-            $harga
+            $harga,
+            $lat_save,
+            $lng_save
         ];
     } else {
         $sql = "
             INSERT INTO bookings 
-            (teknisi_id, layanan, tanggal, waktu, alamat, catatan, status, harga)
-            VALUES (?, ?, ?, ?, ?, ?, 'Menunggu', ?)
+            (teknisi_id, layanan, tanggal, waktu, alamat, catatan, status, harga, lat, lng)
+            VALUES (?, ?, ?, ?, ?, ?, 'Menunggu', ?, ?, ?)
             RETURNING id
         ";
 
@@ -177,7 +218,9 @@ try {
             $waktu,
             $alamat,
             $catatan,
-            $harga
+            $harga,
+            $lat_save,
+            $lng_save
         ];
     }
 

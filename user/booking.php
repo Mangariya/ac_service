@@ -5,6 +5,8 @@ include '../config/database.php';
 // Ambil data dari URL
 $teknisi_id = $_GET['teknisi_id'] ?? null;
 $layanan_url = $_GET['layanan'] ?? null; 
+$harga_url   = intval($_GET['harga'] ?? 0);
+$is_multi    = isset($_GET['multi']);
 
 $customer_name = $_SESSION['user']['nama'] ?? '';
 $customer_phone = $_SESSION['user']['telepon'] ?? '';
@@ -17,6 +19,12 @@ if($teknisi_id) {
     $stmt->execute([$teknisi_id]);
     $t_data = $stmt->fetch();
     $teknisi_nama = $t_data ? $t_data['nama'] : "-";
+}
+
+// Hitung harga dari layanan tunggal jika bukan multi
+if (!$is_multi && $layanan_url) {
+    $harga_map = ['Cuci AC' => 75000, 'Perbaikan AC' => 150000, 'Isi Freon' => 200000];
+    $harga_url = $harga_map[$layanan_url] ?? 0;
 }
 ?>
 
@@ -70,8 +78,8 @@ if($teknisi_id) {
     <?php endif; ?>
     <form action="proses_booking.php" method="POST">
     <input type="hidden" name="teknisi_id" value="<?= $teknisi_id ?>">
-    <input type="hidden" name="layanan" id="input_layanan" value="<?= $layanan_url ?>">
-    <input type="hidden" name="harga" id="input_harga" value="0">
+    <input type="hidden" name="layanan" id="input_layanan" value="<?= htmlspecialchars($layanan_url ?? '') ?>">
+    <input type="hidden" name="harga" id="input_harga" value="<?= $harga_url ?>">
     <input type="hidden" name="lat" id="lat">
     <input type="hidden" name="lng" id="lng">
     <input type="hidden" name="booking_step" id="booking_step" value="1">
@@ -184,7 +192,7 @@ if($teknisi_id) {
                 </div>
                 <div class="d-flex justify-content-between mb-2">
                     <span class="text-muted small">Layanan</span>
-                    <span class="fw-bold small text-end" id="sum_layanan"><?= $layanan_url ?? '-' ?></span>
+                    <span class="fw-bold small text-end" id="sum_layanan" style="max-width:180px;"><?= htmlspecialchars($layanan_url ?? '-') ?></span>
                 </div>
                 <div class="d-flex justify-content-between mb-4">
                     <span class="text-muted small">Estimasi</span>
@@ -193,7 +201,7 @@ if($teknisi_id) {
                 <hr>
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <span class="fw-bold">Total Harga</span>
-                    <span class="h4 fw-bold text-primary mb-0" id="sum_harga">Rp 0</span>
+                    <span class="h4 fw-bold text-primary mb-0" id="sum_harga">Rp <?= number_format($harga_url, 0, ',', '.') ?></span>
                 </div>
                 <div class="alert alert-info py-2 mb-3" role="alert" style="font-size: 0.95rem;">
                     Lengkapi layanan, tanggal, alamat, lalu isi data diri pelanggan di langkah berikutnya.

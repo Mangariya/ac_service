@@ -6,6 +6,40 @@ include '../config/database.php';
 $stmt = $conn->prepare("SELECT * FROM users WHERE role = 'teknisi' AND status_acc = 'approved'");
 $stmt->execute();
 $daftar_teknisi = $stmt->fetchAll();
+
+// Ambil rata-rata rating tiap teknisi
+$rating_data = [];
+if (!empty($daftar_teknisi)) {
+    $teknisi_ids = array_column($daftar_teknisi, 'id');
+    $placeholders = implode(',', array_fill(0, count($teknisi_ids), '?'));
+    $stmt_avg = $conn->prepare("
+        SELECT teknisi_id, 
+               ROUND(AVG(bintang)::numeric, 1) as avg_rating, 
+               COUNT(*) as total_review
+        FROM ratings 
+        WHERE teknisi_id IN ($placeholders)
+        GROUP BY teknisi_id
+    ");
+    $stmt_avg->execute($teknisi_ids);
+    foreach ($stmt_avg->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $rating_data[$r['teknisi_id']] = $r;
+    }
+}
+
+// Ambil ulasan terbaru (10 ulasan)
+$stmt_ulasan = $conn->prepare("
+    SELECT r.bintang, r.komentar, r.created_at, r.layanan,
+           u_teknisi.nama AS nama_teknisi,
+           u_user.nama AS nama_pelanggan
+    FROM ratings r
+    LEFT JOIN users u_teknisi ON r.teknisi_id = u_teknisi.id
+    LEFT JOIN users u_user ON r.user_id = u_user.id
+    WHERE r.komentar IS NOT NULL AND r.komentar != ''
+    ORDER BY r.created_at DESC
+    LIMIT 8
+");
+$stmt_ulasan->execute();
+$ulasan_terbaru = $stmt_ulasan->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -76,6 +110,30 @@ $daftar_teknisi = $stmt->fetchAll();
         .detail-card p{ color:#4B5563; line-height:1.8; }
         .detail-card ul{ padding-left:18px; color:#4B5563; line-height:1.8; margin-top:10px; }
         .detail-card ul li{ margin-bottom:10px; }
+
+        /* Rating Stars */
+        .stars { color: #F59E0B; font-size: 14px; }
+        .stars .bi-star { color: #D1D5DB; }
+        .rating-score { font-weight: 800; color: #111827; font-size: 15px; }
+        .rating-count { color: #6B7280; font-size: 12px; }
+        .no-rating { color: #9CA3AF; font-size: 12px; }
+
+        /* Ulasan Card */
+        .ulasan-card {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            border: none;
+            height: 100%;
+            transition: 0.3s;
+        }
+        .ulasan-card:hover { transform: translateY(-5px); }
+        .ulasan-stars { color: #F59E0B; font-size: 15px; margin-bottom: 10px; }
+        .ulasan-text { color: #374151; font-size: 14px; line-height: 1.7; font-style: italic; margin-bottom: 14px; }
+        .ulasan-meta { font-size: 12px; color: #9CA3AF; }
+        .ulasan-pelanggan { font-weight: 700; color: #374151; font-size: 13px; }
+        .ulasan-layanan { background: #EFF6FF; color: #2563EB; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
 
         @media(max-width:768px){ .navbar-custom{ padding:15px 20px; } .section-padding{ padding:40px 20px; } }
     </style>
@@ -296,8 +354,35 @@ $daftar_teknisi = $stmt->fetchAll();
                         </div>
                         <h4 class="fw-bold"><?= htmlspecialchars($t['nama']) ?></h4>
                         <p class="text-primary fw-600 mb-1"><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($t['wilayah']) ?></p>
-                        <p class="small text-muted mb-4"><?= htmlspecialchars($t['spesialisasi']) ?></p>
-                        <a href="booking.php?teknisi_id=<?= $t['id'] ?>" class="btn-select">Pilih Teknisi</a>
+                        <p class="small text-muted mb-3"><?= htmlspecialchars($t['spesialisasi']) ?></p>
+
+                        <!-- Rating Stars -->
+                        <?php
+                        $rd = $rating_data[$t['id']] ?? null;
+                        $avg = $rd ? floatval($rd['avg_rating']) : 0;
+                        $total = $rd ? intval($rd['total_review']) : 0;
+                        ?>
+                        <div class="mb-3">
+                            <?php if ($total > 0): ?>
+                                <div class="stars mb-1">
+                                    <?php for ($s = 1; $s <= 5; $s++): ?>
+                                        <?php if ($s <= floor($avg)): ?>
+                                            <i class="bi bi-star-fill"></i>
+                                        <?php elseif ($s - $avg < 1 && $avg - floor($avg) >= 0.5): ?>
+                                            <i class="bi bi-star-half"></i>
+                                        <?php else: ?>
+                                            <i class="bi bi-star"></i>
+                                        <?php endif; ?>
+                                    <?php endfor; ?>
+                                    <span class="rating-score ms-1"><?= $avg ?></span>
+                                </div>
+                                <div class="rating-count"><i class="bi bi-chat-left-text me-1"></i><?= $total ?> ulasan</div>
+                            <?php else: ?>
+                                <div class="no-rating"><i class="bi bi-star me-1"></i>Belum ada ulasan</div>
+                            <?php endif; ?>
+                        </div>
+
+                        <a href="pilih_layanan.php?teknisi_id=<?= $t['id'] ?>" class="btn-select">Lihat Layanan & Pesan</a>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -309,6 +394,39 @@ $daftar_teknisi = $stmt->fetchAll();
         </div>
     </div>
 </section>
+
+<!-- Section: Ulasan Pelanggan -->
+<?php if (!empty($ulasan_terbaru)): ?>
+<section class="section-padding" style="background: #F8FAFC; border-top: 1px solid #E5E7EB;">
+    <div class="section-title">
+        <h2>Ulasan Pelanggan</h2>
+        <p class="text-muted">Apa kata mereka yang sudah menggunakan layanan kami</p>
+    </div>
+    <div class="container">
+        <div class="row g-4">
+            <?php foreach($ulasan_terbaru as $ul): ?>
+            <div class="col-md-6 col-lg-3">
+                <div class="ulasan-card">
+                    <div class="ulasan-stars">
+                        <?php for ($s = 1; $s <= 5; $s++): ?>
+                            <i class="bi bi-star<?= $s <= $ul['bintang'] ? '-fill' : '' ?>"></i>
+                        <?php endfor; ?>
+                    </div>
+                    <p class="ulasan-text">"<?= htmlspecialchars($ul['komentar']) ?>"</p>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="ulasan-pelanggan"><?= htmlspecialchars($ul['nama_pelanggan'] ?? 'Pelanggan') ?></div>
+                            <div class="ulasan-meta"><?= date('d M Y', strtotime($ul['created_at'])) ?></div>
+                        </div>
+                        <span class="ulasan-layanan"><?= htmlspecialchars($ul['layanan']) ?></span>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
 
 <footer class="py-4 text-center text-muted">
     © 2026 AC Service - Platform Perawatan AC Terpercaya

@@ -63,7 +63,109 @@ include '../config/database.php';
         .benefit-container{ background:#2563EB; border-radius:30px; padding:60px; color:white; }
         .benefit-box i{ font-size:42px; margin-bottom:20px; display: block; }
 
-        @media(max-width:768px){ .navbar-custom{ padding:15px 20px; } .section-padding{ padding:50px 20px; } .hero-content h1{ font-size:32px; } }
+        /* Banner Daftar Teknisi */
+        .teknisi-join-banner {
+            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 50%, #7C3AED 100%);
+            border-radius: 24px;
+            padding: 36px 44px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            margin-top: 40px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 12px 40px rgba(37,99,235,0.35);
+        }
+        .teknisi-join-banner::before {
+            content: '';
+            position: absolute;
+            top: -60px; right: -60px;
+            width: 220px; height: 220px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.06);
+        }
+        .teknisi-join-banner::after {
+            content: '';
+            position: absolute;
+            bottom: -40px; left: -40px;
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+        }
+        .join-left { flex: 1; position: relative; z-index: 1; }
+        .join-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 5px 14px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 12px;
+        }
+        .join-title {
+            font-size: 26px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 8px;
+            line-height: 1.3;
+        }
+        .join-sub {
+            font-size: 14px;
+            color: rgba(255,255,255,0.85);
+            margin-bottom: 0;
+        }
+        .join-perks {
+            display: flex;
+            gap: 16px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+        .join-perk {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+        }
+        .join-perk i { font-size: 15px; color: #A5F3FC; }
+        .btn-join-teknisi {
+            background: white;
+            color: #2563EB;
+            font-weight: 800;
+            font-size: 15px;
+            padding: 14px 32px;
+            border-radius: 14px;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: 0.3s;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .btn-join-teknisi:hover {
+            background: #EFF6FF;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            color: #1D4ED8;
+        }
+
+        @media(max-width:768px) {
+            .navbar-custom{ padding:15px 20px; }
+            .section-padding{ padding:50px 20px; }
+            .hero-content h1{ font-size:32px; }
+            .teknisi-join-banner { flex-direction: column; padding: 28px 24px; text-align: center; }
+            .join-perks { justify-content: center; }
+        }
     </style>
 </head>
 <body>
@@ -139,6 +241,27 @@ include '../config/database.php';
                 </div>
             </div>
             <?php endforeach; ?>
+        </div>
+
+        <!-- ── Banner Daftar Jadi Teknisi ── -->
+        <div class="container mt-2">
+            <div class="teknisi-join-banner">
+                <div class="join-left">
+                    <div class="join-badge"><i class="bi bi-lightning-charge-fill"></i> Bergabung Sekarang</div>
+                    <h3 class="join-title">Ingin Menjadi Teknisi AC Profesional?</h3>
+                    <p class="join-sub">Daftarkan diri Anda dan mulai karir sebagai teknisi AC terpercaya bersama kami.</p>
+                    <div class="join-perks">
+                        <div class="join-perk"><i class="bi bi-cash-coin"></i> Penghasilan Menarik</div>
+                        <div class="join-perk"><i class="bi bi-calendar2-check"></i> Jadwal Fleksibel</div>
+                        <div class="join-perk"><i class="bi bi-shield-check"></i> Sistem Terpercaya</div>
+                        <div class="join-perk"><i class="bi bi-people-fill"></i> Tim Profesional</div>
+                    </div>
+                </div>
+                <a href="daftar_teknisi.php" class="btn-join-teknisi">
+                    <i class="bi bi-person-plus-fill"></i>
+                    Daftar di Sini
+                </a>
+            </div>
         </div>
     </div>
 </section>

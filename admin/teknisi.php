@@ -134,13 +134,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $stmt = $conn->prepare("
-    SELECT id, nama, email, telepon, spesialisasi, wilayah, created_at
-    FROM users
-    WHERE role = 'teknisi' OR email LIKE '%@teknisi.com'
-    ORDER BY id DESC
+    SELECT u.id, u.nama, u.email, u.telepon, u.spesialisasi, u.wilayah, u.created_at,
+           ROUND(AVG(r.bintang)::numeric, 1) as avg_rating,
+           COUNT(r.id) as total_review
+    FROM users u
+    LEFT JOIN ratings r ON r.teknisi_id = u.id
+    WHERE u.role = 'teknisi' OR u.email LIKE '%@teknisi.com'
+    GROUP BY u.id, u.nama, u.email, u.telepon, u.spesialisasi, u.wilayah, u.created_at
+    ORDER BY u.id DESC
 ");
 $stmt->execute();
 $teknisi = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Hitung calon teknisi yang menunggu
+$cek_tbl = $conn->prepare("
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'pendaftaran_teknisi'
+    )
+");
+$cek_tbl->execute();
+$tbl_exists = (bool) $cek_tbl->fetchColumn();
+$pending_calon = 0;
+if ($tbl_exists) {
+    $cStmt = $conn->prepare("SELECT COUNT(*) FROM pendaftaran_teknisi WHERE status = 'menunggu'");
+    $cStmt->execute();
+    $pending_calon = (int) $cStmt->fetchColumn();
+}
 ?>
 
 <!DOCTYPE html>
@@ -425,6 +445,16 @@ $teknisi = $stmt->fetchAll(PDO::FETCH_ASSOC);
             color: #EF4444;
         }
 
+        .badge-notif-sidebar {
+            background: #EF4444;
+            color: white;
+            border-radius: 50px;
+            padding: 1px 7px;
+            font-size: 10px;
+            font-weight: 800;
+            margin-left: auto;
+        }
+
         .modal-content {
             border: 0;
             border-radius: 18px;
@@ -503,9 +533,19 @@ $teknisi = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </li>
 
         <li>
-            <a href="tambah_teknisi.php" class="active">
+            <a href="teknisi.php" class="active">
                 <i class="bi bi-person-plus"></i>
                 Daftar Teknisi
+            </a>
+        </li>
+
+        <li>
+            <a href="calon_teknisi.php">
+                <i class="bi bi-person-check"></i>
+                Calon Teknisi
+                <?php if ($pending_calon > 0): ?>
+                    <span class="badge-notif-sidebar"><?= $pending_calon ?></span>
+                <?php endif; ?>
             </a>
         </li>
 
@@ -623,6 +663,7 @@ $teknisi = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <th>Telepon</th>
                                 <th>Spesialisasi</th>
                                 <th>Wilayah</th>
+                                <th>Rating</th>
                                 <th>Status</th>
                                 <th>Aksi</th>
                             </tr>
@@ -638,6 +679,18 @@ $teknisi = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         <td><?= htmlspecialchars($row['telepon'] ?? '-'); ?></td>
                                         <td><?= htmlspecialchars(!empty($row['spesialisasi']) ? $row['spesialisasi'] : '-'); ?></td>
                                         <td><?= htmlspecialchars(!empty($row['wilayah']) ? $row['wilayah'] : '-'); ?></td>
+                                        <td>
+                                            <?php if ($row['total_review'] > 0): ?>
+                                                <div style="color:#F59E0B; font-size:13px;">
+                                                    <?php for ($s = 1; $s <= 5; $s++): ?>
+                                                        <i class="bi bi-star<?= $s <= round($row['avg_rating']) ? '-fill' : '' ?>"></i>
+                                                    <?php endfor; ?>
+                                                </div>
+                                                <small class="text-muted"><?= $row['avg_rating'] ?> (<?= $row['total_review'] ?> ulasan)</small>
+                                            <?php else: ?>
+                                                <small class="text-muted">Belum ada ulasan</small>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><span class="badge-teknisi">Teknisi</span></td>
                                         <td>
                                             <div class="action-buttons">

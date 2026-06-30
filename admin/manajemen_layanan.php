@@ -540,6 +540,13 @@ function nomorWhatsapp($telepon)
         </li>
 
         <li>
+            <a href="layanan_saya.php<?= $is_admin && !empty($selected_teknisi_id) ? '?teknisi_id=' . urlencode($selected_teknisi_id) : ''; ?>">
+                <i class="bi bi-bag-heart-fill"></i>
+                Layanan Saya
+            </a>
+        </li>
+
+        <li>
             <a href="reservasi.php<?= $is_admin && !empty($selected_teknisi_id) ? '?teknisi_id=' . urlencode($selected_teknisi_id) : ''; ?>">
                 <i class="bi bi-calendar-check"></i>
                 Reservasi

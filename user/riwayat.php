@@ -61,6 +61,20 @@ if (!$user_id && empty($email_filter)) {
     $stmt = $conn->prepare($query_str);
     $stmt->execute($params);
     $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Ambil semua rating user ini untuk ditampilkan di daftar
+    if ($user_id && !empty($bookings)) {
+        $booking_ids = array_column($bookings, 'id');
+        $placeholders = implode(',', array_fill(0, count($booking_ids), '?'));
+        $stmt_ratings = $conn->prepare("SELECT booking_id, bintang FROM ratings WHERE booking_id IN ($placeholders) AND user_id = ?");
+        $stmt_ratings->execute(array_merge($booking_ids, [$user_id]));
+        $existing_ratings = [];
+        foreach ($stmt_ratings->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $existing_ratings[$r['booking_id']] = $r['bintang'];
+        }
+    } else {
+        $existing_ratings = [];
+    }
 }
 
 function getStatusClass($status) {
@@ -236,6 +250,26 @@ function safeDate($tanggal) {
         .status-jadwal { background: #FEF3C7; color: #92400E; }
         .status-proses { background: #E7EDFF; color: #2563EB; }
         .status-batal { background: #FEE2E2; color: #991B1B; }
+
+        .btn-rating {
+            background: linear-gradient(135deg, #F59E0B, #FBBF24);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: 0.2s;
+            margin-top: 6px;
+        }
+        .btn-rating:hover { background: linear-gradient(135deg, #D97706, #F59E0B); color: white; transform: translateY(-1px); }
+
+        .stars-display { color: #F59E0B; font-size: 13px; }
+        .rating-badge { font-size: 12px; color: #6B7280; margin-top: 4px; }
 
         .btn-detail {
             border: 1px solid #E5E7EB;
@@ -438,6 +472,20 @@ function safeDate($tanggal) {
                             <span class="badge-custom <?= getStatusClass($row['status'] ?? 'Menunggu'); ?>">
                                 <?= htmlspecialchars(getStatusLabel($row['status'] ?? 'Menunggu')); ?>
                             </span>
+
+                            <?php if ($row['status'] === 'Selesai' && $user_id): ?>
+                                <?php if (isset($existing_ratings[$row['id']])): ?>
+                                    <div class="rating-badge mt-1">
+                                        <?php for ($s = 1; $s <= 5; $s++): ?>
+                                            <i class="bi bi-star<?= $s <= $existing_ratings[$row['id']] ? '-fill' : '' ?> stars-display"></i>
+                                        <?php endfor; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <a href="beri_rating.php?booking_id=<?= urlencode($row['id']); ?>" class="btn-rating">
+                                        <i class="bi bi-star"></i> Beri Rating
+                                    </a>
+                                <?php endif; ?>
+                            <?php endif; ?>
                         </div>
 
                         <div class="action">
@@ -474,6 +522,37 @@ function safeDate($tanggal) {
             confirmButtonColor: "#DC2626"
         });
         <?php unset($_SESSION['cancel_success']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['rating_success'])): ?>
+        Swal.fire({
+            title: "Terima Kasih! ⭐",
+            text: "Ulasan Anda berhasil dikirim dan akan terlihat oleh pengguna lain.",
+            icon: "success",
+            confirmButtonColor: "#F59E0B",
+            confirmButtonText: "Oke!"
+        });
+        <?php unset($_SESSION['rating_success']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['info_rating'])): ?>
+        Swal.fire({
+            title: "Info",
+            text: "<?= addslashes($_SESSION['info_rating']); ?>",
+            icon: "info",
+            confirmButtonColor: "#2563EB"
+        });
+        <?php unset($_SESSION['info_rating']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error_rating'])): ?>
+        Swal.fire({
+            title: "Gagal",
+            text: "<?= addslashes($_SESSION['error_rating']); ?>",
+            icon: "error",
+            confirmButtonColor: "#DC2626"
+        });
+        <?php unset($_SESSION['error_rating']); ?>
     <?php endif; ?>
 </script>
 

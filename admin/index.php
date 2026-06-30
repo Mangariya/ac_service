@@ -86,6 +86,16 @@ if (!empty($teknisi_id)) {
     }
 }
 
+// Hitung calon teknisi menunggu
+$cek_tbl = $conn->prepare("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='pendaftaran_teknisi')");
+$cek_tbl->execute();
+$pending_calon = 0;
+if ((bool) $cek_tbl->fetchColumn()) {
+    $cPend = $conn->prepare("SELECT COUNT(*) FROM pendaftaran_teknisi WHERE status='menunggu'");
+    $cPend->execute();
+    $pending_calon = (int) $cPend->fetchColumn();
+}
+
 function statusClass($status)
 {
     if ($status === 'Selesai' || $status === 'completed') return 'status-selesai';
@@ -188,6 +198,16 @@ function kodeReservasi($id, $tanggal)
             background: #EFF6FF;
             color: #2563EB;
             border-right: 4px solid #2563EB;
+        }
+
+        .badge-notif-sb {
+            background: #EF4444;
+            color: white;
+            border-radius: 50px;
+            padding: 1px 7px;
+            font-size: 10px;
+            font-weight: 800;
+            margin-left: auto;
         }
 
         .logout-box {
@@ -562,6 +582,16 @@ function kodeReservasi($id, $tanggal)
             <a href="teknisi.php">
                 <i class="bi bi-person-plus"></i>
                 Teknisi
+            </a>
+        </li>
+
+        <li>
+            <a href="calon_teknisi.php">
+                <i class="bi bi-person-check"></i>
+                Calon Teknisi
+                <?php if ($pending_calon > 0): ?>
+                    <span class="badge-notif-sb"><?= $pending_calon ?></span>
+                <?php endif; ?>
             </a>
         </li>
 
